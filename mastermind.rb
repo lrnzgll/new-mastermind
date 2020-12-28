@@ -1,7 +1,10 @@
-require "set"
-require "parallel"
+require 'set'
+require 'parallel'
 
 module Mastermind
+  NUMBERS = %w[0 1 2 3 4 5 6 7 8 9].freeze
+  PATTERN_SIZE = 5
+  POSSIBLE_PATTERNS = NUMBERS.permutation(PATTERN_SIZE).map{|f| f.join }
   class Scorer
     def initialize
       @cache = {}
@@ -33,10 +36,6 @@ module Mastermind
   end
 
   class Runner
-    NUMBERS = %w[0 1 2 3 4 5 6 7 8 9].freeze
-    PATTERN_SIZE = 5
-    POSSIBLE_PATTERNS = NUMBERS.permutation(PATTERN_SIZE).map{|f| f.join }
-
     def initialize(scorer: Scorer.new)
       @scorer = scorer
     end
@@ -46,8 +45,7 @@ module Mastermind
       potential_patterns = Set.new(unused_patterns)
       guess_count = 1
       guess = ''
-      while true do
-
+      loop do
         puts "Add guess"
         guess = gets.chomp
 
@@ -67,17 +65,15 @@ module Mastermind
           @scorer.score(guess, potential_pattern) != score
         end
         unless potential_patterns.count > 3000
-          # generate new guess
           possible_guesses = []
-            possible_guesses = Parallel.map(unused_patterns, in_processes: 8) do |possible_guess|
-            highest_hit_count = potential_patterns.each_with_object(Hash.new(0)) do |potential_pattern, counts|
-              counts[@scorer.score(potential_pattern, possible_guess)] += 1
-            end.values.max || 0
-            p possible_guess
+          possible_guesses = Parallel.map(unused_patterns, in_processes: 16) do |possible_guess|
+          highest_hit_count = potential_patterns.each_with_object(Hash.new(0)) do |potential_pattern, counts|
+            counts[@scorer.score(potential_pattern, possible_guess)] += 1
+          end.values.max || 0
 
-            membership_value = potential_patterns.include?(possible_guess) ? 0 : 1
+          membership_value = potential_patterns.include?(possible_guess) ? 0 : 1
 
-            [highest_hit_count, membership_value, possible_guess]
+          [highest_hit_count, membership_value, possible_guess]
           end
           guess = possible_guesses.min.last
           guess_count += 1
